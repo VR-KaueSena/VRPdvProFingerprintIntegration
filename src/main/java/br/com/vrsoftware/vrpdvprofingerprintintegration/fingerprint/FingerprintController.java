@@ -2,32 +2,31 @@ package br.com.vrsoftware.vrpdvprofingerprintintegration.fingerprint;
 
 import br.com.vrsoftware.vrpdvprofingerprintintegration.fingerprint.exceptions.FingerprintException;
 import br.com.vrsoftware.vrpdvprofingerprintintegration.fingerprint.factory.FingerprintFactory;
+import br.com.vrsoftware.vrpdvprofingerprintintegration.fingerprint.model.FingerprintMatchResult;
 import br.com.vrsoftware.vrpdvprofingerprintintegration.fingerprint.model.FingerprintType;
 import br.com.vrsoftware.vrpdvprofingerprintintegration.utils.StringParser;
 import br.com.vrsoftware.vrpdvprofingerprintintegration.utils.HttpResponseUtil;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
-/// HTTP controller responsible for fingerprint operations.
-///
-/// This controller exposes a REST-like API to:
-/// - initialize the fingerprint device
-/// - capture a fingerprint
-/// - compare fingerprint templates
-/// - shutdown the fingerprint device
-///
-/// This class is stateless and does not hold business state.
-/// All fingerprint logic is delegated to the core layer.
+/**
+ * HTTP controller for fingerprint operations.
+ *
+ * <p>Exposes endpoints to initialize, capture, compare and
+ * shutdown fingerprint devices.</p>
+ *
+ * <p>Business logic is delegated to the fingerprint core layer.</p>
+ */
 public class FingerprintController implements HttpHandler {
-
-    private static final Logger logger =
-            Logger.getLogger(FingerprintController.class.getName());
 
     private static Fingerprint fingerprint = null;
 
@@ -55,7 +54,7 @@ public class FingerprintController implements HttpHandler {
                     match(exchange);
                     break;
 
-                // POST /fingerprint/shutdown
+                // GET /fingerprint/shutdown
                 case "shutdown":
                     shutdown(exchange);
                     break;
@@ -67,37 +66,38 @@ public class FingerprintController implements HttpHandler {
         } catch (FingerprintException e) {
             HttpResponseUtil.sendFingerprintError(exchange, e);
         } catch (Exception e) {
-            HttpResponseUtil.sendError(exchange);
+            HttpResponseUtil.sendError(exchange, e.getMessage());
         } finally {
             exchange.close();
         }
     }
 
-    /// Initializes the fingerprint device.
-    ///
-    /// Responsibilities:
-    /// - Parse query or body parameters (model, sensitivity)
-    /// - Create the correct fingerprint implementation
-    /// - Initialize the SDK/device
-    private void initialize(HttpExchange exchange) throws IOException  {
+    /**
+     * Initializes the fingerprint device.
+     *
+     * <p>Parses request parameters, creates the correct implementation
+     * and initializes the device.</p>
+     */
+    private void initialize(HttpExchange exchange) throws IOException {
         Map<String, String> params = StringParser.parse(
                 exchange.getRequestURI().getQuery()
         );
 
-        int modelId = Integer.parseInt(params.get("modelo"));
+        int modelId = Integer.parseInt(params.get("modelId"));
         FingerprintType type = FingerprintType.fromId(modelId);
 
-        // Create fingerprint implementation
-        fingerprint = FingerprintFactory.create(type);
+        if (fingerprint == null) fingerprint = FingerprintFactory.create(type);
 
-        // Initialize asynchronously to avoid blocking HTTP thread
-        new Thread(() -> {
-            try {
-                fingerprint.initialize();
-            } catch (Exception e) {
-                logger.log(Level.SEVERE, "Failed to initialize fingerprint device", e);
-            }
-        }, "fingerprint-init-thread").start();
+        try {
+            fingerprint.initialize();
+        } catch (Exception e) {
+            HttpResponseUtil.sendError(
+                    exchange,
+                    "Fingerprint device not connected"
+            );
+
+            return;
+        }
 
         Map<String, Object> data = new HashMap<>();
         data.put("device", type.name());
@@ -110,14 +110,14 @@ public class FingerprintController implements HttpHandler {
         );
     }
 
-    /// Captures a fingerprint template.
-    ///
-    /// Responsibilities:
-    /// - Validate device state
-    /// - Start capture process
-    /// - Block until capture completes
-    /// - Return captured template
-    private void capture(HttpExchange exchange) throws Exception {
+
+    /**
+     * Captures a fingerprint template.
+     *
+     * <p>Validates device state, starts capture and returns
+     * the captured template.</p>
+     */
+    private void capture(HttpExchange exchange) throws Exception{
         fingerprint.startCapture();
 
         while(!fingerprint.hasFingerprintCapture()) {
@@ -138,22 +138,66 @@ public class FingerprintController implements HttpHandler {
         );
     }
 
-    /// Compares two fingerprint templates.
-    ///
-    /// Responsibilities:
-    /// - Parse request body
-    /// - Extract captured and stored templates
-    /// - Call fingerprint.match(...)
-    /// - Return match result and score
+    /**
+     * Compares two fingerprint templates.
+     *
+     * <p>Extracts templates from the request and returns
+     * the match result.</p>
+     */
     private void match(HttpExchange exchange) throws Exception {
-        // TODO parse JSON body
-        // TODO call match
-        // TODO write result response
+        String body = new String(readAllBytes(exchange.getRequestBody()), StandardCharsets.UTF_8);
+
+        JsonObject json = JsonParser.parseString(body).getAsJsonObject();
+
+        String digitalCaptured = json.get("digitalCaptured").getAsString();
+        String digitalToCompare = json.get("digitalToCompare").getAsString();
+
+        FingerprintMatchResult matchResult = fingerprint.match(
+                digitalCaptured,
+                digitalToCompare
+        );
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("matched", matchResult.matched());
+        data.put("score", matchResult.score());
+
+        HttpResponseUtil.sendSuccess(
+                exchange,
+                200,
+                null,
+                data
+        );
     }
 
-    /// Shuts down the fingerprint device and releases resources.
+    /**
+     * Shuts down the fingerprint device and releases resources.
+     */
     private void shutdown(HttpExchange exchange) throws Exception {
-        // TODO fingerprint.shutdown()
-        // TODO write success response
+        if (fingerprint != null) {
+            fingerprint.shutdown();
+            fingerprint = null;
+        }
+
+        HttpResponseUtil.sendSuccess(
+                exchange,
+                200,
+                "SHUTDOWN",
+                null
+        );
+    }
+
+    /**
+     * Reads all bytes from an input stream.
+     */
+    private static byte[] readAllBytes(InputStream input) throws IOException {
+        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+        byte[] data = new byte[4096];
+        int nRead;
+
+        while ((nRead = input.read(data, 0, data.length)) != -1) {
+            buffer.write(data, 0, nRead);
+        }
+
+        return buffer.toByteArray();
     }
 }

@@ -1,22 +1,28 @@
 package br.com.vrsoftware.vrpdvprofingerprintintegration.fingerprint.exceptions;
 
-/// Represents a controlled exception thrown by the fingerprint core.
-///
-/// This exception is designed to be safely exposed through HTTP APIs,
-/// allowing other services (e.g. Go API) to consume error information
-/// in a structured and predictable way.
+/**
+ * Exception representing controlled fingerprint errors.
+ *
+ * <p>Designed to be safely exposed through HTTP APIs.</p>
+ */
 public class FingerprintException extends RuntimeException {
 
-    /// Machine-readable error code (used by external APIs).
+    /**
+     * Machine-readable error code.
+     */
     private final String code;
 
-    /// Creates a fingerprint exception with an error code and message.
+    /**
+     * Creates a fingerprint exception with code and message.
+     */
     public FingerprintException(String code, String message) {
         super(message);
         this.code = code;
     }
 
-    /// Returns the machine-readable error code.
+    /**
+     * Returns the machine-readable error code.
+     */
     public String getCode() {
         return code;
     }

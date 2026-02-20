@@ -2,49 +2,55 @@ package br.com.vrsoftware.vrpdvprofingerprintintegration.fingerprint;
 
 import br.com.vrsoftware.vrpdvprofingerprintintegration.fingerprint.model.FingerprintMatchResult;
 
-/// Represents a generic fingerprint biometric device abstraction.
-///
-/// This interface defines the core operations required to:
-/// - initialize a fingerprint reader
-/// - capture fingerprint templates
-/// - compare fingerprint templates
-/// - manage device lifecycle and sensitivity
-///
-/// Implementations of this interface must encapsulate all vendor-specific
-/// SDKs (e.g. ControlID, DigitalPersona) and expose a unified API to the system.
-///
-/// This interface is intentionally independent of:
-/// - HTTP / API layers
-/// - PDV logic
-/// - persistence or database concerns
+/**
+ * Abstraction for fingerprint biometric devices.
+ *
+ * <p>Defines a unified API for device lifecycle, capture and matching,
+ * independent of vendor SDKs.</p>
+ */
 public interface Fingerprint {
 
-    /// Default minimum threshold used to compare fingerprint similarity.
-    /// Higher values mean stricter matching.
+    /**
+     * Default threshold used for fingerprint matching.
+     */
     int DEFAULT_THRESHOLD = 50;
 
-    /// Initializes the biometric device and underlying SDK.
+    /**
+     * Initializes the biometric device.
+     */
     void initialize() throws Exception;
 
-    /// Starts a fingerprint capture process using default behavior.
+    /**
+     * Starts the fingerprint capture process.
+     */
+
     void startCapture() throws Exception;
 
-    /// Stops any ongoing fingerprint capture process.
+    /**
+     * Stops an ongoing fingerprint capture.
+     */
     void stopCapture() throws Exception;
 
-    /// Properly releases the biometric device and SDK resources.
+    /**
+     * Releases device and SDK resources.
+     */
     void shutdown() throws Exception;
 
-    /// Compares two fingerprint templates and returns whether they match.
+    /**
+     * Compares two fingerprint templates.
+     */
     FingerprintMatchResult match(
             String capturedTemplate,
             String storedTemplate
     ) throws Exception;
 
-    /// Indicates whether the fingerprint capture process has completed.
+    /**
+     * Indicates whether fingerprint capture has completed.
+     */
     boolean hasFingerprintCapture();
 
-    /// Returns the captured fingerprint template in its serialized form.
-    /// Should only be called after captureCompleted() returns true.
+    /**
+     * Returns the captured fingerprint template.
+     */
     String fingerprintCaptured();
 }

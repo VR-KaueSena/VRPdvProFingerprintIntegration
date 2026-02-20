@@ -18,6 +18,9 @@ import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Fingerprint implementation for Control iD devices.
+ */
 public class ControlID implements Fingerprint {
     private boolean sdkInitialized = false;
     private boolean readerConnected = false;
@@ -27,17 +30,16 @@ public class ControlID implements Fingerprint {
     private ThreadReading threadReading = new ThreadReading();
     private final List<FingerprintTemplate> fingerprintsCaptured = new ArrayList<>();
 
-
     private CIDBio scanner;
 
     @Override
     public boolean hasFingerprintCapture() {  return !fingerprintsCaptured.isEmpty(); }
 
     @Override
-    public String fingerprintCaptured () {
-        if (fingerprintsCaptured.isEmpty())  return "";
+    public String fingerprintCaptured() {
+        if (fingerprintsCaptured.isEmpty()) return "";
 
-        return fingerprintsCaptured.getLast().json();
+        return fingerprintsCaptured.get(fingerprintsCaptured.size() - 1).json();
     }
 
     @Override
@@ -129,14 +131,14 @@ public class ControlID implements Fingerprint {
     @Override
     public FingerprintMatchResult match(String capturedTemplate, String storedTemplate) {
         try {
-            FingerprintTemplate fpCaptured = new FingerprintTemplate(capturedTemplate.getBytes());
-            FingerprintTemplate fpStored = new FingerprintTemplate(storedTemplate.getBytes());
+            FingerprintTemplate fpCaptured = new FingerprintTemplate(capturedTemplate);
+            FingerprintTemplate fpStored = new FingerprintTemplate(storedTemplate);
             FingerprintMatcher fm = new FingerprintMatcher(fpCaptured);
 
             double score = fm.match(fpStored);
+            int margin = 10;
 
-            // Calculates the matching threshold based on the configured sensitivity (e.g. DEFAULT_THRESHOLD = 50 results in a threshold of ~12.5).
-            double threshold = Fingerprint.DEFAULT_THRESHOLD * 0.25;
+            double threshold = Fingerprint.DEFAULT_THRESHOLD - margin;
             boolean matched = score >= threshold;
 
             return new FingerprintMatchResult(matched, score);
@@ -148,22 +150,17 @@ public class ControlID implements Fingerprint {
         }
     }
 
-    /// Thread responsible for capturing a single fingerprint image.
-    ///
-    /// This thread waits until no finger is present on the reader,
-    /// then continuously attempts to capture an image until a valid
-    /// fingerprint image is obtained.
-    ///
-    /// Once a successful capture occurs:
-    /// - the raw image buffer is converted into a bitmap
-    /// - a fingerprint template is generated
-    /// - the captured template list is updated
-    /// - the thread finishes execution
-    ///
-    /// The thread stops automatically after a successful capture
-    /// or when interrupted.
+    /**
+     * Thread responsible for capturing a single fingerprint.
+     *
+     * <p>Waits until the reader is ready, performs capture attempts
+     * and stores the resulting template when successful.</p>
+     */
     private class ThreadReading extends Thread {
 
+        /**
+         * Capture execution loop.
+         */
         @Override
         public void run() {
             try {

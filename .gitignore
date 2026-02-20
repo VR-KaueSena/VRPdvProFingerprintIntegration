@@ -41,3 +41,8 @@ bin/
 
 ### Mac OS ###
 .DS_Store
+
+*.log
+launch4j.log
+libs/runtime/
+*.exe

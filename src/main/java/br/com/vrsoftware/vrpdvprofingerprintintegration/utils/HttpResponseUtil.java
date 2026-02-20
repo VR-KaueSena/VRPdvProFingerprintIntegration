@@ -7,20 +7,13 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
 import java.util.Map;
-
-/// Utility class for standardized HTTP JSON responses.
+/**
+ * Utility methods for standardized HTTP JSON responses.
+ */
 public final class HttpResponseUtil {
-    /// Sends a standardized success response.
-    ///
-    /// Response format:
-    /// {
-    ///   "error": false,
-    ///   "message": "...",
-    ///   "data": { ... }
-    /// }
-    ///
-    /// - message: optional (can be null)
-    /// - data: flexible payload using Map<String, Object>
+    /**
+     * Sends a successful JSON response.
+     */
     public static void sendSuccess(
             HttpExchange exchange,
             int statusCode,
@@ -37,44 +30,32 @@ public final class HttpResponseUtil {
         sendJson(exchange, statusCode, json);
     }
 
-    /// Handles unexpected internal errors.
-    ///
-    /// Used for unhandled exceptions, bugs or infrastructure failures.
-    ///
-    /// Response format:
-    /// {
-    ///   "error": true,
-    ///   "message": "Internal server error"
-    /// }
-    ///
-    /// HTTP Status: 500
+    /**
+     * Sends an internal error response (HTTP 500).
+     */
     public static void sendError(
-            HttpExchange exchange
+            HttpExchange exchange,
+            String message
     ) throws IOException {
 
-        String json = "{"
-                + "\"error\":true,"
-                + "\"message\":\"Internal server error\""
-                + "}";
+        String msg = (message == null || message.trim().isEmpty())
+                ? "Internal server error"
+                : message;
 
-        sendJson(exchange, 500, json);
+        sendJson(exchange, 500,
+                "{\"error\":true,\"message\":\"" + escapeJson(msg) + "\"}"
+        );
     }
 
-    /// Handles known fingerprint-related errors.
-    ///
-    /// Used for expected domain/device errors such as:
-    /// - device not initialized
-    /// - invalid capture state
-    /// - capture timeout
-    ///
-    /// Response format:
-    /// {
-    ///   "error": true,
-    ///   "code": "ERROR_CODE",
-    ///   "message": "Description"
-    /// }
-    ///
-    /// HTTP Status: 400
+    private static String escapeJson(String value) {
+        return value
+                .replace("\\", "\\\\")
+                .replace("\"", "\\\"");
+    }
+
+    /**
+     * Sends a fingerprint domain error (HTTP 400).
+     */
     public static void sendFingerprintError(
             HttpExchange exchange,
             FingerprintException e
@@ -89,16 +70,17 @@ public final class HttpResponseUtil {
         sendJson(exchange, 400, json);
     }
 
-    /// Extracts the endpoint name from a request path.
-    ///
-    /// Example:
-    /// /fingerprint/init -> init
+    /**
+     * Extracts the endpoint name from the request path.
+     */
     public static String extractEndpoint(String path) {
         int idx = path.lastIndexOf('/');
         return idx >= 0 ? path.substring(idx + 1) : "";
     }
 
-    /// Writes a JSON response with correct headers.
+    /**
+     * Writes a JSON response with proper headers.
+     */
     private static void sendJson(
             HttpExchange exchange,
             int statusCode,
@@ -111,13 +93,17 @@ public final class HttpResponseUtil {
         exchange.getResponseBody().write(resp);
     }
 
-    /// Safely converts a string into a JSON string value.
+    /**
+     * Converts a string to a JSON-safe value.
+     */
     private static String toJsonString(String value) {
         if (value == null) return "null";
         return "\"" + value.replace("\"", "\\\"") + "\"";
     }
 
-    /// Converts a map into a JSON object.
+    /**
+     * Converts a map into a JSON object.
+     */
     private static String toJsonObject(Map<String, Object> map) {
         if (map == null || map.isEmpty()) return "{}";
 
@@ -138,7 +124,9 @@ public final class HttpResponseUtil {
         return json.toString();
     }
 
-    /// Converts supported Java types into JSON values.
+    /**
+     * Converts supported Java types into JSON values.
+     */
     private static String toJsonValue(Object value) {
         if (value == null) return "null";
         if (value instanceof Number || value instanceof Boolean) {

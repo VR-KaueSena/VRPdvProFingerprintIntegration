@@ -4,19 +4,29 @@ import br.com.vrsoftware.vrpdvprofingerprintintegration.fingerprint.Fingerprint;
 import br.com.vrsoftware.vrpdvprofingerprintintegration.fingerprint.exceptions.FingerprintErrorCodes;
 import br.com.vrsoftware.vrpdvprofingerprintintegration.fingerprint.exceptions.FingerprintException;
 import br.com.vrsoftware.vrpdvprofingerprintintegration.fingerprint.impl.ControlID;
+import br.com.vrsoftware.vrpdvprofingerprintintegration.fingerprint.impl.HamsterDX;
 import br.com.vrsoftware.vrpdvprofingerprintintegration.fingerprint.model.FingerprintType;
 
-/// Factory responsible for creating fingerprint implementations based on device type.
+/**
+ * Factory for creating fingerprint implementations.
+ */
 public final class FingerprintFactory {
 
+    /**
+     * Creates a fingerprint implementation based on the device type.
+     */
     public static Fingerprint create(FingerprintType type) {
 
-        return switch (type) {
-            case CONTROLID, SMAKBIO -> new ControlID();
-            default -> throw new FingerprintException(
-                    FingerprintErrorCodes.UNSUPPORTED_DEVICE,
-                    "Fingerprint device not supported: " + type
-            );
-        };
+        switch (type) {
+            case CONTROLID:
+                return new ControlID();
+            case HAMSTER:
+                return new HamsterDX();
+            default:
+                throw new FingerprintException(
+                        FingerprintErrorCodes.UNSUPPORTED_DEVICE,
+                        "Fingerprint device not supported: " + type
+                );
+        }
     }
 }

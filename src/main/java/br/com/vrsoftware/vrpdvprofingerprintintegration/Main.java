@@ -6,21 +6,34 @@ import com.sun.net.httpserver.HttpServer;
 import java.net.InetSocketAddress;
 import java.util.concurrent.Executors;
 
-/// Application entry point for the Fingerprint Integration Service.
-///
-/// This class is responsible only for:
-/// - starting the embedded HTTP server
-/// - registering HTTP endpoints
-/// - wiring controllers
-///
-/// All business logic and biometric handling are delegated
-/// to the fingerprint core and controller layers.
+/**
+ * Application entry point for the Fingerprint Integration Service.
+ *
+ * <p>This class is responsible for:</p>
+ * <ul>
+ *   <li>Starting the embedded HTTP server</li>
+ *   <li>Registering HTTP endpoints</li>
+ *   <li>Wiring controllers</li>
+ * </ul>
+ *
+ * <p>Business logic and biometric handling are delegated to the
+ * fingerprint core and controller layers.</p>
+ */
 public class Main {
 
-    /// Default HTTP port used by the fingerprint service.
+    /**
+     * Default HTTP port used by the fingerprint service.
+     */
     private static final int PORT = 8090;
 
-    static void main() throws Exception {
+    /**
+     * Application bootstrap.
+     *
+     * @param args command-line arguments
+     * @throws Exception if server initialization fails
+     */
+    public static void main(String[] args) throws Exception {
+
         // Create embedded HTTP server
         HttpServer server = HttpServer.create(
                 new InetSocketAddress(PORT),
